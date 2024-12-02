@@ -1,0 +1,37 @@
+jacocoTestReport {
+	reports {
+		html.enabled true
+        xml.enabled true
+    }
+}
+
+sonarqube {
+	properties {		
+		property 'sonar.core.codeCoveragePlugin', 'jacoco'
+		property 'sonar.java.coveragePlugin', 'jacoco'
+		property 'jacoco.version', '0.8.7'
+	}
+}
+
+plugins.withType(JacocoPlugin) {
+	tasks["test"].finalizedBy 'jacocoTestReport'
+}
+
+
+dependencyCheck {
+	outputDirectory = "${buildDir}/reports/dependencycheckreport/"
+	format='ALL'
+	if(file('owasp-suppressions.xml').exists()){
+		suppressionFile = 'owasp-suppressions.xml'
+	}
+}
+
+sonarqube {
+	// https://contacte.aoc.cat/browse/GIQ-609
+	// Aquests paths són INFORMATIUS, el que afecta a on és desa és el outputdirectory del dependencyCheck, però aquests són
+	// necessaris per enviar la INFO a sonar un cop generada.
+	properties {
+		property 'sonar.dependencyCheck.jsonReportPath', "${buildDir}/reports/dependencycheckreport/dependency-check-report.json"
+		property 'sonar.dependencyCheck.htmlReportPath', "${buildDir}/reports/dependencycheckreport/dependency-check-report.html"
+	}
+}
