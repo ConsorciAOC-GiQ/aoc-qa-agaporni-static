@@ -1,0 +1,149 @@
+/**
+ * @albciff: Base per a GEB + SPOCK + drivers dels navegadors
+ *
+ * Al build base on es fara el apply d'aquest fitxer cal afegir els següents plugins
+ *
+ * 	id 'groovy'
+ *  id "com.github.erdi.webdriver-binaries" version "3.2"
+ *  id "com.github.erdi.idea-base" version "2.2"
+ *
+ *  I filtrar els tests funcionals pq es tirin especificament només en el testWeb i no en el test (definició pipeline)
+ *  test {
+ *       filter {
+ *          excludeTestsMatching "specs.*"
+ *      }
+ *  }
+ *  Per convenció el package dels tests de geb sempre començaran per spec.
+ */
+ext {
+    // drivers a utilitzar --> de moment no tenim IE al grid de selenium
+    drivers = ["firefox", "chrome", "chromeHeadless","remote"]
+    gebVersion = '7.0'
+    seleniumVersion = '4.10.0'
+    chromeDriverVersion = '116.0.5845.96'
+    geckoDriverVersion = '0.33.0'
+}
+
+dependencies {
+
+    testImplementation "org.gebish:geb-spock:$gebVersion"
+    testImplementation "org.gebish:geb-junit5:$gebVersion"
+    testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.7.2'
+    testImplementation "org.seleniumhq.selenium:selenium-java:$seleniumVersion"
+
+}
+
+webdriverBinaries {
+    driverUrlsConfiguration = resources.text.fromUri('https://raw.githubusercontent.com/albciff/webdriverextensions-maven-plugin-repository/master/repository-3.0.json')
+    chromedriver {
+        version = chromeDriverVersion
+        fallbackTo32Bit = true
+    }
+    geckodriver geckoDriverVersion
+}
+
+drivers.each { driver ->
+    task "${driver}Test"(type: Test) {
+
+        filter {
+            includeTestsMatching "specs.*"
+        }
+
+        group JavaBasePlugin.VERIFICATION_GROUP
+
+        useJUnitPlatform()
+
+        systemProperty "geb.build.reportsDir", reporting.file("geb/$name")
+        systemProperty "geb.env", driver
+
+        systemProperty "entorn", (project.properties['entorn'] ?: System.env['ENTORN'])?.toLowerCase()
+    }
+}
+
+// a jenkins només volem el remote
+// a nivell local cada develop pot llençar el test que vulgui individualment
+// chomreTest, chromeHeadlessTest, firefoxTest o remoteTest
+task testWeb {
+    dependsOn tasks["remoteTest"]
+}
+
+tasks.withType(GroovyCompile) {
+    groovyOptions.forkOptions.memoryMaximumSize = '256m'
+}
+
+/*
+compileTestGroovy {
+    options.incremental = true
+}
+
+compileTestGroovy.getSource().each {
+    println it.getAbsolutePath()
+    println it.getAbsoluteFile()
+}
+
+compileTestGroovy.getGroovyClasspath().each {
+    println it.getAbsolutePath()
+    println it.getAbsoluteFile()
+}
+
+compileTestGroovy.getStableSources().each {
+    println it.getAbsolutePath()
+    println it.getAbsoluteFile()
+}
+
+task printTaskInputs {
+    doLast {
+
+        compileTestGroovy.getOutputs().each {
+            println it.getUpToDateSpec();
+            println it.getFiles().each { file ->
+                println file.getAbsolutePath()
+            }
+            //println it.getPreviousOutputFiles()
+        }
+        compileTestGroovy.getFinalizedBy().each {
+            println "FinalizedBy ${it}"
+        }
+
+        compileTestGroovy.getInputs().getSourceFiles().each {
+            println "SourceFile ${it.absolutePath}"
+        }
+
+
+        compileTestGroovy.getInputs().getProperties().each {
+            println "Properties ${it.getKey()} - ${it.getValue()}"
+        }
+
+        compileTestGroovy.getTaskDependencies().each {
+            it.properties.each{ k,v ->
+                println "${it} - ${k} - ${v}"
+            }
+        }
+
+        compileTestGroovy.getFinalizedBy().properties.each {k,v ->
+            println "${k} ${v}"
+        }
+
+    }
+}
+
+task printSourceSets {
+    doLast {
+
+        sourceSets.each {
+            println it.getClass()
+            it.getProperties().each {k,v ->
+                println "$k $v"
+            }
+            println "sourceSet.name = "+it.name
+            println "output.classesDir = "+it.output.classesDirs
+            println "output.resourcesDir = "+it.output.resourcesDir
+            //println "compileClasspath = "+it.compileClasspath.asPath
+            //println "runtimeClasspath = "+it.runtimeClasspath.asPath
+        }
+
+    }
+}
+
+ */
+

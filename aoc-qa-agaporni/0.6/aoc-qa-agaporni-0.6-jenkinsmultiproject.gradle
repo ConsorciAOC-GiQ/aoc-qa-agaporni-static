@@ -1,0 +1,38 @@
+subprojects {
+
+    apply plugin: 'org.sonarqube'
+    apply plugin: 'org.owasp.dependencycheck'
+    apply plugin: 'jacoco'
+
+    jacocoTestReport {
+        reports {
+            html.enabled true
+            xml.enabled true
+        }
+    }
+
+    sonarqube {
+        properties {
+            property 'sonar.core.codeCoveragePlugin', 'jacoco'
+            property 'sonar.java.coveragePlugin', 'jacoco'
+            property 'jacoco.version', '0.8.7'
+        }
+    }
+
+    plugins.withType(JacocoPlugin) {
+        tasks["test"].finalizedBy 'jacocoTestReport'
+    }
+}
+
+dependencyCheck {
+    outputDirectory = "${buildDir}/reports/dependencycheckreport/"
+    format='ALL'
+    if(file('owasp-suppressions.xml').exists()){
+        suppressionFile = 'owasp-suppressions.xml'
+    }
+}
+
+// https://contacte.aoc.cat/browse/GIQ-510
+tasks.create("getSubprojectReportDirs") {
+    println subprojects.collect { it.name + ":" + it.reportsDir }
+}

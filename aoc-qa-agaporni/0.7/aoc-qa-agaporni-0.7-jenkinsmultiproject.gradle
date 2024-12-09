@@ -1,0 +1,51 @@
+subprojects {
+
+    apply plugin: 'org.sonarqube'
+// en els multiprojectes es llença aggregate i no cal per tant aplicar el plugin a cada subprojecte.
+// aplicant-lo al prj principal funciona correctament. Si s'aplica a cada subprojecte es llença pel global i per cadascun 
+// dels subprojectes. Quan el global ja fa el aggregate de tots.
+// apply plugin: 'org.owasp.dependencycheck'
+    apply plugin: 'jacoco'
+
+    jacocoTestReport {
+        reports {
+            html.enabled true
+            xml.enabled true
+        }
+    }
+
+    sonarqube {
+        properties {
+            property 'sonar.core.codeCoveragePlugin', 'jacoco'
+            property 'sonar.java.coveragePlugin', 'jacoco'
+            property 'jacoco.version', '0.8.7'
+        }
+    }
+
+    plugins.withType(JacocoPlugin) {
+        tasks["test"].finalizedBy 'jacocoTestReport'
+    }
+}
+
+dependencyCheck {
+    outputDirectory = "${buildDir}/reports/dependencycheckreport/"
+    format='ALL'
+    if(file('owasp-suppressions.xml').exists()){
+        suppressionFile = 'owasp-suppressions.xml'
+    }
+}
+
+sonarqube {
+    // https://contacte.aoc.cat/browse/GIQ-609
+    // Aquests paths són INFORMATIUS, el que afecta a on és desa és el outputdirectory del dependencyCheck, però aquests són
+    // necessaris per enviar la INFO a sonar un cop generada.
+    properties {
+        property 'sonar.dependencyCheck.jsonReportPath', "${buildDir}/reports/dependencycheckreport/dependency-check-report.json"
+        property 'sonar.dependencyCheck.htmlReportPath', "${buildDir}/reports/dependencycheckreport/dependency-check-report.html"
+    }
+}
+
+// https://contacte.aoc.cat/browse/GIQ-510
+tasks.create("getSubprojectReportDirs") {
+    println subprojects.collect { it.name + ":" + it.reportsDir }
+}

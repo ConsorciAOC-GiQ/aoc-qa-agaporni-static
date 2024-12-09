@@ -1,0 +1,35 @@
+jacocoTestReport {
+	reports {
+		html.enabled true
+        xml.enabled true
+    }
+}
+
+sonarqube {
+	properties {
+		property 'sonar.dependencyCheck.jsonReportPath', 'build/reports/dependency-check-report.json'
+		property 'sonar.dependencyCheck.htmlReportPath', 'build/reports/dependency-check-report.html'
+		
+		property 'sonar.sources', 'src/main/java'
+		
+		if(file('src/test/java').exists()){
+			property 'sonar.tests', 'src/test/java'
+		}
+		
+		property 'sonar.core.codeCoveragePlugin', 'jacoco'
+		property 'sonar.java.coveragePlugin', 'jacoco'
+		property 'jacoco.version', '0.8.7'
+	}
+}
+
+plugins.withType(JacocoPlugin) {
+	tasks["test"].finalizedBy 'jacocoTestReport'
+}
+
+
+dependencyCheck {
+	format='ALL'
+	if(file('owasp-suppressions.xml').exists()){
+		suppressionFile = 'owasp-suppressions.xml'
+	}
+}

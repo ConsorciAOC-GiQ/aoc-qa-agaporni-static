@@ -1,0 +1,175 @@
+/**
+ * MC / MSC PCI - BUILD BASE
+ */
+	apply plugin: 'maven'
+	apply plugin: 'java'
+
+	repositories {
+		mavenCentral()
+		maven { url "http://192.168.166.69:7991/nexus/content/repositories/thirdparty/" }
+		maven { url "http://repo.maven.apache.org/maven2" }
+	}
+
+	configurations {
+		jaxb
+		jaxws
+		providedCompile
+	}
+
+	dependencies {
+		jaxb 	'org.jvnet.jaxb2_commons:jaxb2-namespace-prefix:1.3'
+		jaxb 	'com.sun.xml.bind:jaxb-xjc:2.2.7'
+		jaxws 	'com.sun.xml.ws:jaxws-ri:2.2.7'
+		jaxws	'com.sun.xml.ws:jaxws-tools:2.2.7'
+		
+		// jars no disponibles a cap repositori
+		//compile fileTree(dir: 'include', include: '*.jar')
+		//providedCompile fileTree(dir: 'include-ext', include: '*.jar')
+	}
+	sourceSets {
+		main {
+			java {
+				srcDir 'src/main'
+			}
+		}
+		generated {
+			java {
+				srcDir 'src/generated'
+			}
+		}
+		test {
+			java {
+				srcDir 'src/test'
+			}
+		}
+	}
+
+	task schemaJar(type: Jar) {
+		from sourceSets.generated.output
+	}
+	
+	sourceSets.main.compileClasspath = sourceSets.main.compileClasspath.plus(configurations.providedCompile)
+		
+	compileJava.options.encoding = 'UTF-8'
+	
+	task schemas {
+		doLast {
+			System.setProperty('javax.xml.accessExternalSchema','all')
+			delete "./src/generated/java"
+			mkdir "./src/generated/java"
+			println "\nSchemas...\n"
+			ant.taskdef(name: 'xjc', classname: 'com.sun.tools.xjc.XJC2Task', classpath: configurations.jaxb.asPath)
+			def schemaFiles = new File("schema")
+			schemaFiles.eachFileRecurse(groovy.io.FileType.FILES) { file ->
+				if(file.name.endsWith('.xsd')) {
+					println "\n\t${file.name}\n"
+					def xsdBinding = "schema/${file.name.split("\\.")[0]}-jaxb-bindings.xml"
+					if (new File("${xsdBinding}").exists()) {
+						println "\n\t>>\t${new File(xsdBinding).name}\n"
+						ant.xjc(schema: file.getAbsolutePath(),
+							destdir: "./src/generated/java",
+							encoding: "UTF-8",
+							target: "2.0",
+							binding: "${xsdBinding}",
+							extension: "true") {
+								arg(value: "-Xnamespace-prefix")
+							}
+					} else {
+						ant.xjc(schema: file.getAbsolutePath(),
+							destdir: "./src/generated/java",
+							encoding: "UTF-8",
+							target: "2.0") /* {
+								arg(value: "-episode")
+								arg(value: "${file.name}.episode")
+							} */
+					}
+				}
+			}
+		}
+	}
+
+	task schemasCore  {
+		doLast {
+
+			println "\nSchemas core...\n"
+			ant.taskdef(name: 'xjc', classname: 'com.sun.tools.xjc.XJC2Task', classpath: configurations.jaxb.asPath)
+			def schemaFiles = new File("schema")
+			schemaFiles.eachFileRecurse(groovy.io.FileType.FILES) { file ->
+				if(file.name.endsWith('.xsd')) {
+					println "\n\t${file.name}\n"
+					def xsdBinding = "schema/${file.name.split("\\.")[0]}-jaxb-bindings.xml"
+					if (new File("${xsdBinding}").exists()) {
+						println "\n\t>>\t${new File(xsdBinding).name}\n"
+						ant.xjc(schema: file.getAbsolutePath(),
+							destdir: "./src/main/java",
+							encoding: "UTF-8",
+							target: "2.0",
+							binding: "${xsdBinding}",
+							extension: "true") {
+								arg(value: "-Xnamespace-prefix")
+							}
+					} else {
+						ant.xjc(schema: file.getAbsolutePath(),
+							destdir: "./src/main/java",
+							encoding: "UTF-8",
+							target: "2.0") /* {
+								arg(value: "-episode")
+								arg(value: "${file.name}.episode")
+							} */
+					}
+				}
+			}
+		}
+	}
+	
+	task wsdls {
+		doLast {
+			println "\nWSDLs...\n"
+			System.setProperty('javax.xml.accessExternalSchema','all')
+			System.setProperty('javax.xml.accessExternalDTD','all')
+			ant.taskdef(name: 'wsimport', classname: 'com.sun.tools.ws.ant.WsImport', classpath: configurations.jaxws.asPath)
+			def wsdlFiles = new File("wsdl")
+			wsdlFiles.eachFileRecurse(groovy.io.FileType.FILES) { file ->
+				if(file.name.endsWith('.wsdl')) {
+					println "\n\t${file.name}\n"
+					def wsdlBinding = "wsdl/${file.name.split("\\.")[0]}-jaxb-bindings.xml"
+					if (new File("${wsdlBinding}").exists()) {
+						println "\n\t>>\t${new File(wsdlBinding).name}\n"
+						ant.wsimport(wsdl: file.getAbsolutePath(),
+							wsdlLocation: "/wsdl/${file.name}",
+							xnocompile: "true",
+							xendorsed: "true",
+							encoding: "UTF-8",
+							sourcedestdir: "./src/main/java",
+							target: "2.2",
+							binding: "${wsdlBinding}")
+					} else {
+						ant.wsimport(wsdl: file.getAbsolutePath(),
+							wsdlLocation: "/wsdl/${file.name}",
+							xnocompile: "true",
+							xendorsed: "true",
+							encoding: "UTF-8",
+							sourcedestdir: "./src/main/java",
+							target: "2.2")
+					}
+				}
+			}
+		}
+	}
+
+	task evaluateTemplates {
+		doLast {
+			println "\nEvaluate templates...\n"
+			File props = new File("./conf_var/${ENTORN}/build.properties")
+			def cfg = new groovy.util.ConfigSlurper().parse(props.text)
+			def engine = new groovy.text.SimpleTemplateEngine()
+
+			def templates = fileTree("..").include("**/*.tmpl")
+			templates.each {File file ->
+				def template = engine.createTemplate(file.getText('UTF-8')).make(cfg)
+				def evaluated = new File(file.absolutePath[0..file.absolutePath.lastIndexOf('.')-1])
+				evaluated.setText(template.toString(),'UTF-8')
+			}
+		}
+	}
+
